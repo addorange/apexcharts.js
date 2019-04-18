@@ -321,7 +321,12 @@ class BarStacked extends Bar {
       barXPosition = bXP
     } else {
       // the first series will not have prevX values
-      barXPosition = zeroW
+      if (w.config.plotOptions.bar.offsetX.length > 0 && w.config.plotOptions.bar.horizontal === true) {
+        let initialBarOffsetX = w.config.plotOptions.bar.offsetX[j] / this.invertedYRatio
+        barXPosition = (initialBarOffsetX < 0) ? zeroW - Math.abs(initialBarOffsetX) : zeroW + Math.abs(initialBarOffsetX)
+      } else {
+        barXPosition = zeroW
+      }
     }
 
     if (this.series[i][j] === null) {

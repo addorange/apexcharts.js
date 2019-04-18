@@ -38,6 +38,7 @@ export default class Config {
     opts.series = this.checkEmptySeries(opts.series)
 
     opts = this.extendYAxis(opts)
+    opts = this.extendXAxisOffset(opts)
     opts = this.extendAnnotations(opts)
 
     let config = options.init()
@@ -162,6 +163,11 @@ export default class Config {
     } else {
       opts.yaxis = Utils.extendArray(opts.yaxis, options.yAxis)
     }
+    return opts
+  }
+
+  extendXAxisOffset(opts) {
+    opts.yaxis[0].min = Math.min(...opts.plotOptions.bar.offsetX)
     return opts
   }
 

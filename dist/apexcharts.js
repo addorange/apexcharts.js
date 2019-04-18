@@ -2161,7 +2161,8 @@
                 position: 'top' // top, center, bottom
                 // TODO: provide stackedLabels for stacked charts which gives additions of values
 
-              }
+              },
+              offsetX: []
             },
             candlestick: {
               colors: {
@@ -4559,6 +4560,7 @@
 
         opts.series = this.checkEmptySeries(opts.series);
         opts = this.extendYAxis(opts);
+        opts = this.extendXAxisOffset(opts);
         opts = this.extendAnnotations(opts);
         var config = options.init();
         var newDefaults = {};
@@ -4684,6 +4686,12 @@
         }
 
         return opts;
+      }
+    }, {
+      key: "extendXAxisOffset",
+      value: function extendXAxisOffset(opts) {
+        opts.yaxis[0].min = Math.min.apply(Math, _toConsumableArray(opts.plotOptions.bar.offsetX));
+        return opts;
       } // annotations also accepts array, so we need to extend them manually
 
     }, {
@@ -4798,7 +4806,7 @@
             }
 
             if (!config.tooltip.followCursor) {
-              console.warn('followCursor option in shared columns cannot be turned off.');
+              console.warn('followCursor option in shared columns cannot be turned off. Please set %ctooltip.followCursor: true', 'color: blue;');
               config.tooltip.followCursor = true;
             }
           }
@@ -4950,6 +4958,7 @@
           // Max Z value in charts with Z axis
           maxZ: -Number.MAX_VALUE,
           // Max Z value in charts with Z axis
+          minXDiff: Number.MAX_VALUE,
           mousedown: false,
           lastClientPosition: {},
           // don't reset this variable this the chart is destroyed. It is used to detect right or left mousemove in panning
@@ -5979,7 +5988,6 @@
         this.baseLineInvertedY = xyRatios.baseLineInvertedY;
       }
 
-      this.minXDiff = Number.MAX_VALUE;
       this.yaxisIndex = 0;
       this.seriesLen = 0;
     }
@@ -6000,8 +6008,7 @@
         series = coreUtils.getLogSeries(series);
         this.series = series;
         this.yRatio = coreUtils.getLogYRatios(this.yRatio);
-        var initVars = this.initVariables(series, this.minXDiff);
-        this.minXDiff = initVars.minXDiff;
+        this.initVariables(series);
         var ret = graphics.group({
           class: 'apexcharts-bar-series apexcharts-plot-series'
         });
@@ -6270,7 +6277,7 @@
       }
     }, {
       key: "initVariables",
-      value: function initVariables(series, minXDiff) {
+      value: function initVariables(series) {
         var w = this.w;
         this.series = series;
         this.totalItems = 0;
@@ -6285,16 +6292,7 @@
           }
 
           if (w.globals.isXNumeric) {
-            // get the least x diff if numeric x axis is present
-            w.globals.seriesX.forEach(function (sX, i) {
-              sX.forEach(function (s, j) {
-                if (j > 0) {
-                  var xDiff = s - w.globals.seriesX[i][j - 1];
-                  minXDiff = Math.min(xDiff, minXDiff);
-                }
-              });
-            }); // get max visible items
-
+            // get max visible items
             for (var j = 0; j < series[sl].length; j++) {
               if (w.globals.seriesX[sl][j] > w.globals.minX && w.globals.seriesX[sl][j] < w.globals.maxX) {
                 this.visibleItems++;
@@ -6309,10 +6307,6 @@
           // A small adjustment when combo charts are used
           this.seriesLen = 1;
         }
-
-        return {
-          minXDiff: minXDiff
-        };
       }
     }, {
       key: "initialPositions",
@@ -6340,8 +6334,7 @@
 
           if (w.globals.isXNumeric) {
             // max barwidth should be equal to minXDiff to avoid overlap
-            this.minXDiff = this.calcMinimumXDiff(this.minXDiff);
-            xDivision = this.minXDiff / this.xRatio;
+            xDivision = w.globals.minXDiff / this.xRatio;
             barWidth = xDivision / this.seriesLen * parseInt(this.barOptions.columnWidth) / 100;
           }
 
@@ -6359,31 +6352,6 @@
           zeroH: zeroH,
           zeroW: zeroW
         };
-      }
-    }, {
-      key: "calcMinimumXDiff",
-      value: function calcMinimumXDiff(minXDiff) {
-        var w = this.w;
-        var len = w.globals.labels.length;
-
-        if (w.globals.labels.length === 1) {
-          minXDiff = (w.globals.maxX - w.globals.minX) / len / 3;
-        } else {
-          if (minXDiff === Number.MAX_VALUE) {
-            // possibly a single dataPoint (fixes react-apexcharts/issue#34)
-            if (w.globals.timelineLabels.length > 0) {
-              len = w.globals.timelineLabels.length;
-            }
-
-            if (len < 3) {
-              len = 3;
-            }
-
-            minXDiff = (w.globals.maxX - w.globals.minX) / len;
-          }
-        }
-
-        return minXDiff;
       }
     }, {
       key: "drawBarPaths",
@@ -6957,9 +6925,7 @@
         var coreUtils = new CoreUtils(this.ctx, w);
         series = coreUtils.getLogSeries(series);
         this.yRatio = coreUtils.getLogYRatios(this.yRatio);
-        this.minXDiff = Number.MAX_VALUE;
-        var initVars = this.initVariables(series, this.minXDiff);
-        this.minXDiff = initVars.minXDiff;
+        this.initVariables(series);
 
         if (w.config.chart.stackType === '100%') {
           series = w.globals.seriesPercent.slice();
@@ -7165,9 +7131,7 @@
           barWidth = xDivision;
 
           if (w.globals.isXNumeric) {
-            this.minXDiff = this.calcMinimumXDiff(this.minXDiff); // max barwidth should be equal to minXDiff to avoid overlap
-
-            xDivision = this.minXDiff / this.xRatio;
+            xDivision = w.globals.minXDiff / this.xRatio;
             barWidth = xDivision * parseInt(this.barOptions.columnWidth) / 100;
           } else {
             barWidth = barWidth * parseInt(w.config.plotOptions.bar.columnWidth) / 100;
@@ -7235,7 +7199,12 @@
           barXPosition = bXP;
         } else {
           // the first series will not have prevX values
-          barXPosition = zeroW;
+          if (w.config.plotOptions.bar.offsetX.length > 0 && w.config.plotOptions.bar.horizontal === true) {
+            var initialBarOffsetX = w.config.plotOptions.bar.offsetX[j] / this.invertedYRatio;
+            barXPosition = initialBarOffsetX < 0 ? zeroW - Math.abs(initialBarOffsetX) : zeroW + Math.abs(initialBarOffsetX);
+          } else {
+            barXPosition = zeroW;
+          }
         }
 
         if (this.series[i][j] === null) {
@@ -7781,6 +7750,7 @@
       this.w = ctx.w;
       this.xRatio = xyRatios.xRatio;
       this.yRatio = xyRatios.yRatio;
+      this.negRange = false;
       this.dynamicAnim = this.w.config.chart.animations.dynamicAnimation;
       this.rectRadius = this.w.config.plotOptions.heatmap.radius;
       this.strokeWidth = this.w.config.stroke.width;
@@ -7800,6 +7770,7 @@
         var yDivision = w.globals.gridHeight / w.globals.series.length;
         var y1 = 0;
         var rev = false;
+        this.checkColorRange();
         var heatSeries = series.slice();
 
         if (w.config.yaxis[0].reversed) {
@@ -7827,7 +7798,7 @@
             var colorShadePercent = 1;
             var heatColorProps = this.determineHeatColor(i, j);
 
-            if (w.globals.hasNegs) {
+            if (w.globals.hasNegs || this.negRange) {
               var shadeIntensity = w.config.plotOptions.heatmap.shadeIntensity;
 
               if (heatColorProps.percent < 0) {
@@ -7925,6 +7896,22 @@
         return ret;
       }
     }, {
+      key: "checkColorRange",
+      value: function checkColorRange() {
+        var _this = this;
+
+        var w = this.w;
+        var heatmap = w.config.plotOptions.heatmap;
+
+        if (heatmap.colorScale.ranges.length > 0) {
+          heatmap.colorScale.ranges.map(function (range, index) {
+            if (range.from < 0) {
+              _this.negRange = true;
+            }
+          });
+        }
+      }
+    }, {
       key: "determineHeatColor",
       value: function determineHeatColor(i, j) {
         var w = this.w;
@@ -7955,8 +7942,10 @@
               color = range.color;
               min = range.from;
               max = range.to;
-              total = Math.abs(max) + Math.abs(min);
-              percent = 100 * val / total;
+
+              var _total = Math.abs(max) + Math.abs(min);
+
+              percent = 100 * val / (_total === 0 ? _total - 0.000001 : _total);
             }
           });
         }
@@ -8013,7 +8002,7 @@
     }, {
       key: "animateHeatMap",
       value: function animateHeatMap(el, x, y, width, height, speed) {
-        var _this = this;
+        var _this2 = this;
 
         var animations = new Animations(this.ctx);
         animations.animateRect(el, {
@@ -8027,7 +8016,7 @@
           width: width,
           height: height
         }, speed, function () {
-          _this.w.globals.animationEnded = true;
+          _this2.w.globals.animationEnded = true;
         });
       }
     }, {
@@ -10903,7 +10892,7 @@
           for (var _xat = 0; _xat < xAxisTexts.length; _xat++) {
             var _tSpan = xAxisTexts[_xat].childNodes;
 
-            if (w.config.xaxis.labels.trim && !w.globals.isBarHorizontal) {
+            if (w.config.xaxis.labels.trim && w.config.xaxis.type !== 'datetime') {
               graphics.placeTextWithEllipsis(_tSpan[0], _tSpan[0].textContent, width);
             }
           }
@@ -12019,7 +12008,8 @@
             gl.xAxisScale = this.scales.linearScale(1, ticks, ticks);
 
             if (gl.noLabelsProvided && gl.labels.length > 0) {
-              gl.xAxisScale = this.scales.linearScale(1, gl.labels.length, ticks - 1);
+              gl.xAxisScale = this.scales.linearScale(1, gl.labels.length, ticks - 1); // this is the only place seriesX is again mutated
+
               gl.seriesX = gl.labels.slice();
             }
           } // we will still store these labels as the count for this will be different (to draw grid and labels placement)
@@ -12045,10 +12035,48 @@
           }
         }
 
+        if (gl.isXNumeric) {
+          // get the least x diff if numeric x axis is present
+          gl.seriesX.forEach(function (sX, i) {
+            sX.forEach(function (s, j) {
+              if (j > 0) {
+                var xDiff = s - gl.seriesX[i][j - 1];
+                gl.minXDiff = Math.min(xDiff, gl.minXDiff);
+              }
+            });
+          });
+          this.calcMinXDiffForTinySeries();
+        }
+
         return {
           minX: gl.minX,
           maxX: gl.maxX
         };
+      }
+    }, {
+      key: "calcMinXDiffForTinySeries",
+      value: function calcMinXDiffForTinySeries() {
+        var w = this.w;
+        var len = w.globals.labels.length;
+
+        if (w.globals.labels.length === 1) {
+          w.globals.minXDiff = (w.globals.maxX - w.globals.minX) / len / 3;
+        } else {
+          if (w.globals.minXDiff === Number.MAX_VALUE) {
+            // possibly a single dataPoint (fixes react-apexcharts/issue#34)
+            if (w.globals.timelineLabels.length > 0) {
+              len = w.globals.timelineLabels.length;
+            }
+
+            if (len < 3) {
+              len = 3;
+            }
+
+            w.globals.minXDiff = (w.globals.maxX - w.globals.minX) / len;
+          }
+        }
+
+        return w.globals.minXDiff;
       }
     }, {
       key: "setZRange",
@@ -14205,6 +14233,7 @@
         gl.minDate = Number.MAX_VALUE;
         gl.minZ = Number.MAX_VALUE;
         gl.maxZ = -Number.MAX_VALUE;
+        gl.minXDiff = Number.MAX_VALUE;
         gl.yAxisScale = [];
         gl.xAxisScale = null;
         gl.xAxisTicksPositions = [];
@@ -14575,33 +14604,47 @@
 
         return this.w;
       }
+      /** User possibly set string categories in xaxis.categories or labels prop
+       * Or didn't set xaxis labels at all - in which case we manually do it.
+       * If user passed series data as [[3, 2], [4, 5]] or [{ x: 3, y: 55 }],
+       * this shouldn't be called
+       * @param {array} ser - the series which user passed to the config
+       */
+
     }, {
       key: "handleExternalLabelsData",
       value: function handleExternalLabelsData(ser) {
         var cnf = this.w.config;
-        var gl = this.w.globals; // user provided labels in category axis
+        var gl = this.w.globals;
 
         if (cnf.xaxis.categories.length > 0) {
+          // user provided labels in xaxis.category prop
           gl.labels = cnf.xaxis.categories;
         } else if (cnf.labels.length > 0) {
+          // user provided labels in labels props
           gl.labels = cnf.labels.slice();
         } else if (this.fallbackToCategory) {
+          // user provided labels in x prop in [{ x: 3, y: 55 }] data, and those labels are already stored in gl.labels[0], so just re-arrange the gl.labels array
           gl.labels = gl.labels[0];
         } else {
-          // user didn't provided labels, fallback to 1-2-3-4-5
+          // user didn't provided any labels, fallback to 1-2-3-4-5
           var labelArr = [];
 
           if (gl.axisCharts) {
+            // for axis charts, we get the longest series and create labels from it
             for (var i = 0; i < gl.series[gl.maxValsInArrayIndex].length; i++) {
               labelArr.push(i + 1);
-            }
+            } // create gl.seriesX as it will be used in calculations of x positions
+
 
             for (var _i = 0; _i < ser.length; _i++) {
               gl.seriesX.push(labelArr);
-            }
+            } // turn on the isXNumeric flag to allow minX and maxX to function properly
+
 
             gl.isXNumeric = true;
           } // no series to pull labels from, put a 0-10 series
+          // possibly, user collapsed all series. Hence we can't work with above calc
 
 
           if (labelArr.length === 0) {
@@ -14610,14 +14653,12 @@
             for (var _i2 = 0; _i2 < ser.length; _i2++) {
               gl.seriesX.push(labelArr);
             }
-          }
+          } // Finally, pass the labelArr in gl.labels which will be printed on x-axis
 
-          gl.labels = labelArr;
+
+          gl.labels = labelArr; // Turn on this global flag to indicate no labels were provided by user
+
           gl.noLabelsProvided = true;
-
-          if (cnf.xaxis.type === 'category') {
-            gl.isXNumeric = false;
-          }
         }
       } // Segregate user provided data into appropriate vars
 
@@ -14627,14 +14668,17 @@
         var w = this.w;
         var cnf = w.config;
         var gl = w.globals;
-        this.excludeCollapsedSeriesInYAxis();
+        this.excludeCollapsedSeriesInYAxis(); // If we detected string in X prop of series, we fallback to category x-axis
+
         this.fallbackToCategory = false;
         this.resetGlobals();
         this.isMultipleY();
 
         if (gl.axisCharts) {
+          // axisCharts includes line / area / column / scatter
           this.parseDataAxisCharts(ser);
         } else {
+          // non-axis charts are pie / donut
           this.parseDataNonAxisCharts(ser);
         }
 
@@ -14651,11 +14695,10 @@
           this.coreUtils.getStackedSeriesTotals();
         }
 
-        this.coreUtils.getPercentSeries(); // x-axis labels couldn't be detected; hence try searching every option in config
-        // Also, if dataFormatXNumeric = [[3, 2], [4, 5]] ||
-        //          dataFormatXNumeric = [{ x: 3, y: 55 }], then skip
+        this.coreUtils.getPercentSeries();
 
         if (!gl.dataFormatXNumeric && (!gl.isXNumeric || cnf.xaxis.type === 'numeric' && cnf.labels.length === 0 && cnf.xaxis.categories.length === 0)) {
+          // x-axis labels couldn't be detected; hence try searching every option in config
           this.handleExternalLabelsData(ser);
         }
       }
@@ -25935,9 +25978,9 @@
   }
   }());
 
-  /*! svg.draggable.js - v2.2.1 - 2016-08-25
-  * https://github.com/wout/svg.draggable.js
-  * Copyright (c) 2016 Wout Fierens; Licensed MIT */
+  /*! svg.draggable.js - v2.2.2 - 2019-01-08
+  * https://github.com/svgdotjs/svg.draggable.js
+  * Copyright (c) 2019 Wout Fierens; Licensed MIT */
   (function() {
 
     // creates handler, saves it
@@ -25960,18 +26003,18 @@
     DragHandler.prototype.transformPoint = function(event, offset){
         event = event || window.event;
         var touches = event.changedTouches && event.changedTouches[0] || event;
-        this.p.x = touches.pageX - (offset || 0);
-        this.p.y = touches.pageY;
+        this.p.x = touches.clientX - (offset || 0);
+        this.p.y = touches.clientY;
         return this.p.matrixTransform(this.m)
     };
-    
+
     // gets elements bounding box with special handling of groups, nested and use
     DragHandler.prototype.getBBox = function(){
 
       var box = this.el.bbox();
 
       if(this.el instanceof SVG.Nested) box = this.el.rbox();
-      
+
       if (this.el instanceof SVG.G || this.el instanceof SVG.Use || this.el instanceof SVG.Nested) {
         box.x = this.el.x();
         box.y = this.el.y();
@@ -25989,11 +26032,18 @@
             return
         }
       }
-    
+
       var _this = this;
 
       // fire beforedrag event
       this.el.fire('beforedrag', { event: e, handler: this });
+      if(this.el.event().defaultPrevented) return;
+
+      // prevent browser drag behavior as soon as possible
+      e.preventDefault();
+
+      // prevent propagation to a parent that might also have dragging enabled
+      e.stopPropagation();
 
       // search for parent on the fly to make sure we can call
       // draggable() even when element is not in the dom currently
@@ -26004,13 +26054,13 @@
       this.m = this.el.node.getScreenCTM().inverse();
 
       var box = this.getBBox();
-      
+
       var anchorOffset;
-      
+
       // fix text-anchor in text-element (#37)
       if(this.el instanceof SVG.Text){
         anchorOffset = this.el.node.getComputedTextLength();
-          
+
         switch(this.el.attr('text-anchor')){
           case 'middle':
             anchorOffset /= 2;
@@ -26020,14 +26070,14 @@
             break;
         }
       }
-      
+
       this.startPoints = {
         // We take absolute coordinates since we are just using a delta here
         point: this.transformPoint(e, anchorOffset),
         box:   box,
         transform: this.el.transform()
       };
-      
+
       // add drag and end events to window
       SVG.on(window, 'mousemove.drag', function(e){ _this.drag(e); });
       SVG.on(window, 'touchmove.drag', function(e){ _this.drag(e); });
@@ -26036,12 +26086,6 @@
 
       // fire dragstart event
       this.el.fire('dragstart', {event: e, p: this.startPoints.point, m: this.m, handler: this});
-
-      // prevent browser drag behavior
-      e.preventDefault();
-
-      // prevent propagation to a parent that might also have dragging enabled
-      e.stopPropagation();
     };
 
     // while dragging
@@ -26054,20 +26098,15 @@
         , c   = this.constraint
         , gx  = p.x - this.startPoints.point.x
         , gy  = p.y - this.startPoints.point.y;
-        
-      var event = new CustomEvent('dragmove', {
-          detail: {
-              event: e
-            , p: p
-            , m: this.m
-            , handler: this
-          }
-        , cancelable: true
+
+      this.el.fire('dragmove', {
+          event: e
+        , p: p
+        , m: this.m
+        , handler: this
       });
-        
-      this.el.fire(event);
-      
-      if(event.defaultPrevented) return p
+
+      if(this.el.event().defaultPrevented) return p
 
       // move the element to its new position, if possible by constraint
       if (typeof c == 'function') {
@@ -26098,21 +26137,33 @@
       } else if (typeof c == 'object') {
 
         // keep element within constrained box
-        if (c.minX != null && x < c.minX)
+        if (c.minX != null && x < c.minX) {
           x = c.minX;
-        else if (c.maxX != null && x > c.maxX - box.width){
+          gx = x - this.startPoints.box.x;
+        } else if (c.maxX != null && x > c.maxX - box.width) {
           x = c.maxX - box.width;
-        }if (c.minY != null && y < c.minY)
+          gx = x - this.startPoints.box.x;
+        } if (c.minY != null && y < c.minY) {
           y = c.minY;
-        else if (c.maxY != null && y > c.maxY - box.height)
+          gy = y - this.startPoints.box.y;
+        } else if (c.maxY != null && y > c.maxY - box.height) {
           y = c.maxY - box.height;
-          
+          gy = y - this.startPoints.box.y;
+        }
+
+        if (c.snapToGrid != null) {
+          x = x - (x % c.snapToGrid);
+          y = y - (y % c.snapToGrid);
+          gx = gx - (gx % c.snapToGrid);
+          gy = gy - (gy % c.snapToGrid);
+        }
+
         if(this.el instanceof SVG.G)
           this.el.matrix(this.startPoints.transform).transform({x:gx, y: gy}, true);
         else
           this.el.move(x, y);
       }
-      
+
       // so we can use it in the end-method, too
       return p
     };
@@ -26639,7 +26690,7 @@
                               return;
                           }
 
-                          snap = this.checkAspectRatio(snap);
+                          snap = this.checkAspectRatio(snap, true);
 
                           this.el.move(this.parameters.box.x, this.parameters.box.y + snap[1]).size(this.parameters.box.width + snap[0], this.parameters.box.height - snap[1]);
                       }
@@ -26677,7 +26728,7 @@
                               return;
                           }
 
-                          snap = this.checkAspectRatio(snap);
+                          snap = this.checkAspectRatio(snap, true);
 
                           this.el.move(this.parameters.box.x + snap[0], this.parameters.box.y).size(this.parameters.box.width - snap[0], this.parameters.box.height + snap[1]);
                       }
@@ -26759,12 +26810,12 @@
                       // end minus middle
                       var pAngle = Math.atan2((current.y - this.parameters.box.y - this.parameters.box.height / 2), (current.x - this.parameters.box.x - this.parameters.box.width / 2));
 
-                      var angle = (pAngle - sAngle) * 180 / Math.PI;
+                      var angle = this.parameters.rotation + (pAngle - sAngle) * 180 / Math.PI + this.options.snapToAngle / 2;
 
                       // We have to move the element to the center of the box first and change the rotation afterwards
                       // because rotation always works around a rotation-center, which is changed when moving the element
                       // We also set the new rotation center to the center of the box.
-                      this.el.center(this.parameters.box.cx, this.parameters.box.cy).rotate(this.parameters.rotation + angle - angle % this.options.snapToAngle, this.parameters.box.cx, this.parameters.box.cy);
+                      this.el.center(this.parameters.box.cx, this.parameters.box.cy).rotate(angle - (angle % this.options.snapToAngle), this.parameters.box.cx, this.parameters.box.cy);
                   };
                   break;
 
@@ -26859,6 +26910,12 @@
               temp = [(this.parameters.box.x + diffX + (flag & 1 ? 0 : this.parameters.box.width)) % this.options.snapToGrid, (this.parameters.box.y + diffY + (flag & (1 << 1) ? 0 : this.parameters.box.height)) % this.options.snapToGrid];
           }
 
+          if(diffX < 0) {
+              temp[0] -= this.options.snapToGrid;
+          }
+          if(diffY < 0) {
+              temp[1] -= this.options.snapToGrid;
+          }
 
           diffX -= (Math.abs(temp[0]) < this.options.snapToGrid / 2 ?
                     temp[0] :
@@ -26904,7 +26961,7 @@
           return [diffX, diffY];
       };
 
-      ResizeHandler.prototype.checkAspectRatio = function (snap) {
+      ResizeHandler.prototype.checkAspectRatio = function (snap, isReverse) {
           if (!this.options.saveAspectRatio) {
               return snap;
           }
@@ -26918,13 +26975,14 @@
           if (newAspectRatio < aspectRatio) {
               // Height is too big. Adapt it
               updatedSnap[1] = newW / aspectRatio - this.parameters.box.height;
+              isReverse && (updatedSnap[1] = -updatedSnap[1]);
           } else if (newAspectRatio > aspectRatio) {
               // Width is too big. Adapt it
               updatedSnap[0] = this.parameters.box.width - newH * aspectRatio;
+              isReverse && (updatedSnap[0] = -updatedSnap[0]);
           }
 
           return updatedSnap;
-
       };
 
       SVG.extend(SVG.Element, {
@@ -27552,14 +27610,15 @@
           this.series.handleNoData();
         }
 
-        this.setupEventHandlers();
+        this.setupEventHandlers(); // Handle the data inputted by user and set some of the global variables (for eg, if data is datetime / numeric / category). Don't calculate the range / min / max at this time
+
         this.core.parseData(ser); // this is a good time to set theme colors first
 
-        this.theme.init(); // labelFormatters should be called before dimensions as in dimensions we need text labels width
-        // as markers accepts array, we need to setup global markers for easier access
+        this.theme.init(); // as markers accepts array, we need to setup global markers for easier access
 
         var markers = new Markers(this);
-        markers.setGlobalMarkerSize();
+        markers.setGlobalMarkerSize(); // labelFormatters should be called before dimensions as in dimensions we need text labels width
+
         this.formatters.setLabelFormatters();
         this.titleSubtitle.draw(); // legend is calculated here before coreCalculations because it affects the plottable area
 

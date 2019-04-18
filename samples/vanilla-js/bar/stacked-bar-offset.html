@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Stacked Bar Chart</title>
+
+    
+    <link href="../../assets/styles.css" rel="stylesheet" />
+
+    <style>
+        #chart {
+            max-width: 650px;
+            margin: 35px auto;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="chart">
+
+    </div>
+
+    
+    <script src="../../../dist/apexcharts.js"></script>
+
+    <script>
+        var options = {
+            chart: {
+                height: 350,
+                type: 'bar',
+                stacked: true,
+            },
+            plotOptions: {
+                bar: {
+                    horizontal: true,
+                    offsetX: [-10, 0, 0, 0, 0, 0, 0]
+                }
+            },
+            stroke: {
+                width: 1,
+                colors: ['#fff']
+            },
+            series: [{
+                name: 'negative',
+                data: [7, 1, 7]
+            },{
+                name: 'rather negative',
+                data: [14, 17, 18]
+            },{
+                name: 'neutral',
+                data: [9, 21, 15]
+            },{
+                name: 'positive',
+                data: [26, 41, 32]
+            },{
+                name: 'mostly positive',
+                data: [45, 20, 28]
+            }],
+            title: {
+                text: 'Feelings about ...'
+            },
+            xaxis: {
+                categories: [2012, 2013, 2014],
+            },
+            yaxis: {
+                title: {
+                    text: undefined
+                },
+                
+            },
+            fill: {
+                opacity: 1
+            },
+            legend: {
+                position: 'top',
+                horizontalAlign: 'left',
+                offsetX: 40
+            }
+        }
+
+       var chart = new ApexCharts(
+            document.querySelector("#chart"),
+            options
+        );
+        
+        chart.render();
+    </script>
+</body>
+
+</html>

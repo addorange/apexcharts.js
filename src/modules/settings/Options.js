@@ -329,7 +329,8 @@ export default class Options {
             maxItems: 100,
             position: 'top' // top, center, bottom
             // TODO: provide stackedLabels for stacked charts which gives additions of values
-          }
+          },
+          offsetX: []
         },
         candlestick: {
           colors: {
